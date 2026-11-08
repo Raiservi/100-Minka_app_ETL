@@ -72,8 +72,8 @@ run_pipeline <- function() {
 
   # reparacio del link de les imatges.......
 
-  capa_new$url_picture <- gsub("/square\\.", "/original.", capa_new$url_picture)
-  capa_new$url_picture <- gsub("https://minka-sdg.org", "https://observe.minka-sdg.org", capa_new$url_picture)
+  #capa_new$url_picture <- gsub("/square\\.", "/original.", capa_new$url_picture)
+  #capa_new$url_picture <- gsub("https://minka-sdg.org", "https://observe.minka-sdg.org", capa_new$url_picture)
 
   # Estadistiques previes
 
