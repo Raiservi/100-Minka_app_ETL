@@ -1,0 +1,78 @@
+name: Minka ETL
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minka-etl
+  cancel-in-progress: false
+
+jobs:
+  check-local-time:
+    runs-on: ubuntu-latest
+    outputs:
+      run_etl: ${{ steps.time.outputs.run_etl }}
+    steps:
+      - id: time
+        name: Run at 02:00 Europe/Madrid
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "run_etl=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          local_hour="$(TZ=Europe/Madrid date +'%H')"
+          previous_hour="$(TZ=Europe/Madrid date -d '1 hour ago' +'%H')"
+          if [[ "$local_hour" == "02" && "$previous_hour" != "02" ]]; then
+            echo "run_etl=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_etl=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping scheduled run outside 02:00 Europe/Madrid."
+          fi
+
+  run-etl:
+    needs: check-local-time
+    if: needs.check-local-time.outputs.run_etl == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PGDATABASE: ${{ secrets.PGDATABASE }}
+      PGHOST: ${{ secrets.PGHOST }}
+      PGPORT: ${{ secrets.PGPORT }}
+      PGUSER: ${{ secrets.PGUSER }}
+      PGPASSWORD: ${{ secrets.PGPASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install system libraries for spatial data and PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev libpq-dev
+
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages(c("sf", "DBI", "RPostgres", "tidyverse", "httr"), repos = "https://cloud.r-project.org")'
+
+      - name: Check database configuration
+        shell: bash
+        run: |
+          for name in PGDATABASE PGHOST PGPORT PGUSER PGPASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Run pipeline
+        run: Rscript Pipeline.R
