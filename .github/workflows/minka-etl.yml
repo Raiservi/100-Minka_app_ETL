@@ -42,11 +42,13 @@ jobs:
     if: needs.check-local-time.outputs.run_etl == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    environment:
+      name: .Renviron
     env:
-      PGDATABASE: ${{ secrets.PGDATABASE }}
-      PGHOST: ${{ secrets.PGHOST }}
-      PGPORT: ${{ secrets.PGPORT }}
-      PGUSER: ${{ secrets.PGUSER }}
+      PGDATABASE: ${{ vars.PGDATABASE }}
+      PGHOST: ${{ vars.PGHOST }}
+      PGPORT: ${{ vars.PGPORT }}
+      PGUSER: ${{ vars.PGUSER }}
       PGPASSWORD: ${{ secrets.PGPASSWORD }}
     steps:
       - uses: actions/checkout@v4
